@@ -1,0 +1,377 @@
+// # Version 0.2
+
+// - Autor of the base menu code: Richard Treu
+// - Mail: mail(at)richardtreu.de
+// - Edit: 2012.03.11
+// - Comments: I adjusted this library to fit Arduino 1.0 and a 16x2 LCD
+//	       The menu is controlled via the AD-KEYPAD on the LCD-Shield
+// 	       No changes to license - but please leave these headers.
+//The idea for this sketch is to create a dog training tool. In Bark Mode it dispences treats based on a timer, when the timer runs out it turns a motor that releases the treats, but if teh dog barks before the timer it up
+//teh timer resets. In Time Mode only the time matters, and the motor moves regardless of the dog barking or not.
+
+//# Include
+//# ==================================
+#include <LiquidCrystal.h>
+#include <Menu.h>
+#include <LCDMenu2.h>
+#include <Stepper.h>
+//# Define
+//# ==================================
+#define _LCD_rows       2
+#define _LCD_cols       16
+
+
+#define _BUTTON_prestat 0
+
+#define _BUTTON_press_time  250
+
+const int stepsPerRevolution = 200;
+Stepper myStepper(stepsPerRevolution, 3,4,5,6);
+
+int adc_key_val[5] ={
+  50, 200, 400, 600, 800 };
+int NUM_KEYS = 5;
+int adc_key_in;
+int key=-1;
+
+//# Own Chars
+//# ==================================
+byte arrow_up[8]    = {
+  0x4,0xE,0x15,0x4,0x4,0x4,0x0};
+byte arrow_down[8]  = {
+  0x0,0x4,0x4,0x4,0x15,0xE,0x4};
+
+//# Classes
+//# ==================================
+// LiquidCrystal lcd(2,3,4,5,6,7); // Neuste Version, RW wird nicht mehr gebraucht 
+LiquidCrystal lcd(8, 13, 9, 4, 5, 6, 7);
+Menu top("Root");
+
+// menu, lcd, rows, cols, arrow_up_pos, arrow_down_pos
+LCDMenu2 Root(top, lcd , _LCD_rows, _LCD_cols, 0, 1);
+
+//# Buttons
+//# ==================================
+//Previous States of buttons
+boolean pbut[4]={
+  _BUTTON_prestat,_BUTTON_prestat,_BUTTON_prestat,_BUTTON_prestat};
+
+//# Button Enter
+//# ==================================
+int button_press_enter = 0;
+unsigned long g_button_press_time = millis();
+
+//# Menu
+//# ==================================
+Menu Item1("Bark Mode"); //parent menu for Bark Mode
+Menu Item11("1 Second");
+Menu Item12("2 Seconds");
+Menu Item13("5 Seconds"); //sub menus for Bark mode (Item11-Item17)
+Menu Item14("10 Seconds");
+Menu Item15("30 Seconds");
+Menu Item16("1 Minute");
+Menu Item17("2 Minutes");
+Menu Item18("5 Minutes");
+Menu Item19("10 Minutes");
+Menu Item110("Random");
+Menu Item2("Timer Mode"); //Parent menu for timer mode
+Menu Item21("T 1 Second");
+Menu Item22("T 2 Seconds");
+Menu Item23("T 5 Seconds");
+Menu Item24("T 10 Seconds");
+Menu Item25("T 30 Seconds");
+Menu Item26("T 1 Minute");
+Menu Item27("T 2 Minutes");
+Menu Item28("T 5 Minutes");
+Menu Item29("T 10 Minutes");
+Menu Item210("T Random");
+
+
+
+//# Function
+//# ==================================
+
+//## Menu Init
+void menuinit()
+{
+  top.addChild(Item1);
+  top.addChild(Item2);
+ 
+  Item1.addChild(Item11);
+  Item1.addChild(Item12);
+  Item1.addChild(Item13);
+  Item1.addChild(Item14);
+  Item1.addChild(Item15);
+  Item1.addChild(Item16);
+  Item1.addChild(Item17);
+  Item1.addChild(Item18);
+  Item1.addChild(Item19);
+  Item1.addChild(Item110);
+  Item2.addChild(Item21);
+  Item2.addChild(Item22);
+  Item2.addChild(Item23);
+  Item2.addChild(Item24);
+  Item2.addChild(Item25);
+  Item2.addChild(Item26);
+  Item2.addChild(Item27);
+  Item2.addChild(Item28);
+  Item2.addChild(Item29);
+  Item2.addChild(Item210);
+
+ 
+  
+  Root.display();
+}    
+
+//## Button
+void button(int which)
+{
+  if(which == 1) {
+    //UP
+    Root.goUp();
+    Serial.println("'up'");
+  }
+  else if(which == 2) {
+    //DOWN
+    Root.goDown();
+    Serial.println("'down'");
+  }
+  else if(which == 0) {
+    //ENTER
+    Root.goEnter();
+    button_press_enter = 1;
+    Serial.println("'enter'");
+  }
+  else if(which == 3) {
+    //BACK
+    Root.goBack();
+    Serial.println("'back'");
+  }
+}
+
+//## Button Check
+void buttoncheck()
+{
+  adc_key_in = analogRead(0);    // read the value from the sensor 
+  key = get_key(adc_key_in);  // convert into key press
+  if(key>=0){
+    for (int i=0;i<=3;i++)
+    {
+      if (i==key) {          
+        if ((millis()-g_button_press_time) >= _BUTTON_press_time) {                  
+          button(i);
+          g_button_press_time = millis();
+        }
+      }
+      else {
+      }
+    }
+  }
+}
+
+//## Function Check
+void funccheck()
+{
+  if(button_press_enter == 1) {
+    button_press_enter = 0;
+    if(Root.curfuncname == "1 Second") { //These first parts are the instructions for what to do in bark mode
+     for(int x=0; x<5000; x++){
+      Serial.println("1 Second");  //print selected option on LCD
+      delay(1000); //how long to wait before motor moves
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+        }
+       else if(Root.curfuncname == "2 Seconds") { //These first parts are the instructions for what to do in bark mode
+       for(int x=0; x<5000; x++){
+      Serial.println(" Seconds");  //print selected option on LCD
+      delay(2000); //how long to wait before motor moves
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+       }
+    
+    else if(Root.curfuncname == "5 Seconds") { //These first parts are the instructions for what to do in bark mode
+       for(int x=0; x<5000; x++){
+      Serial.println("5 Seconds");  //print selected option on LCD
+      delay(5000); //how long to wait before motor moves
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+        }
+    else if(Root.curfuncname == "10 Seconds") {
+       for(int x=0; x<5000; x++){
+      Serial.println("10 Seconds");
+      delay(10000);
+      myStepper.step(stepsPerRevolution);
+    }
+        }
+    else if (Root.curfuncname == "30 Seconds") {
+       for(int x=0; x<5000; x++){
+      Serial.println("30 Seconds");
+      delay(30000);
+      myStepper.step(stepsPerRevolution);
+    }
+    }
+    else if (Root.curfuncname == "1 Minute") {
+       for(int x=0; x<5000; x++){ 
+      Serial.println("1 Minute");
+      delay(60000);
+      myStepper.step(stepsPerRevolution);
+    }
+    }
+    else if(Root.curfuncname == "2 Minutes") {
+       for(int x=0; x<5000; x++){
+      Serial.println("2 Minutes");
+      delay(120000);
+      myStepper.step(stepsPerRevolution);
+    }
+    }
+    else if(Root.curfuncname == "5 Minutes") {
+       for(int x=0; x<5000; x++){
+      Serial.println("5 Minutes");
+      delay(300000);
+      myStepper.step(stepsPerRevolution);
+    }
+    }
+    else if(Root.curfuncname == "10 Minutes") {
+      for(int x=0; x<5000; x++){
+      Serial.println("10 Minutes");
+      delay(600000);
+      myStepper.step(stepsPerRevolution);
+    }
+    }
+    else if(Root.curfuncname == "Random") {
+      for(int x=0; x<5000; x++){
+      Serial.println("Random reward");
+      delay(random(600000));
+       myStepper.step(stepsPerRevolution);
+    }
+    }
+    else if(Root.curfuncname == "Timer Mide") { //here is teh code for timer mode
+     
+      Serial.println("Timer Mode");
+    }
+    else if(Root.curfuncname == "T 1 Second") { //it is called T 30 Secode to diferentiate it from the 30 second command in bark mode (above)
+       detachInterrupt(0);
+       for(int x=0; x<5000; x++){
+      Serial.println("30 Seconds"); //print selection on LCD
+      delay (1000); //how long to wait before moving the motor
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+    }  
+    else if(Root.curfuncname == "T 2 Seconds") { //it is called T 30 Secode to diferentiate it from the 30 second command in bark mode (above)
+      detachInterrupt(0);
+      for(int x=0; x<5000; x++){
+      Serial.println("30 Seconds"); //print selection on LCD
+      delay (2000); //how long to wait before moving the motor
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+    }
+    else if(Root.curfuncname == "T 5 Seconds") { //it is called T 30 Secode to diferentiate it from the 30 second command in bark mode (above)
+      detachInterrupt(0);
+      for(int x=0; x<5000; x++){
+      Serial.println("30 Seconds"); //print selection on LCD
+      delay (5000); //how long to wait before moving the motor
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+    }
+    else if(Root.curfuncname == "T 10 Seconds") { //it is called T 30 Secode to diferentiate it from the 30 second command in bark mode (above)
+     detachInterrupt(0);
+      for(int x=0; x<5000; x++){
+      Serial.println("30 Seconds"); //print selection on LCD
+      delay (10000); //how long to wait before moving the motor
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+    }
+    else if(Root.curfuncname == "T 30 Seconds") { //it is called T 30 Secode to diferentiate it from the 30 second command in bark mode (above)
+      detachInterrupt(0);
+      for(int x=0; x<5000; x++){
+      Serial.println("30 Seconds"); //print selection on LCD
+      delay (30000); //how long to wait before moving the motor
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+    }
+    else if(Root.curfuncname == "T 1 Minute") {
+      detachInterrupt(0);
+      for(int x=0; x<5000; x++){
+       Serial.println("1 Minute");
+      delay (60000);
+      myStepper.step(stepsPerRevolution); 
+    }
+    }
+    else if(Root.curfuncname == "T 2 Minutes") {
+      detachInterrupt(0);
+      for(int x=0; x<5000; x++){
+      Serial.println("2 Minutes"); //print selection on LCD
+      delay (120000); //how long to wait before moving the motor
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+    }
+     else if(Root.curfuncname == "T 5 Minutes") {
+      detachInterrupt(0);
+       for(int x=0; x<5000; x++){
+      Serial.println("5 Minutes"); //print selection on LCD
+      delay (300000); //how long to wait before moving the motor
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+     }
+     else if(Root.curfuncname == "T 10 Minutes") {
+       detachInterrupt(0);
+       for(int x=0; x<5000; x++){
+      Serial.println("10 Minutes"); //print selection on LCD
+      delay (600000); //how long to wait before moving the motor
+      myStepper.step(stepsPerRevolution); //motor moves
+    }
+     }
+      else if(Root.curfuncname == "T Random") {
+       detachInterrupt(0);
+        for(int x=0; x<5000; x++){
+        Serial.println("Random Reward");
+       delay (random(600000)); //how long to wait before moving the motor
+      myStepper.step(stepsPerRevolution); //motor moves
+    }          
+      }
+  }
+}
+
+
+//# Setup
+//# ==================================
+void setup()
+{
+  lcd.begin(_LCD_rows,_LCD_cols);
+  lcd.createChar(0, arrow_up);
+  lcd.createChar(1, arrow_down);  
+  menuinit();
+myStepper.setSpeed(60);
+attachInterrupt(0, wait, RISING); //this inturupt uses a microphone, when the microphone detects rising noise it activates.
+  Serial.begin(9600);
+  Serial.println("DEBUG:");
+  Serial.println("================");
+}
+
+//# LOOP
+//# ==================================
+void loop()
+{
+  buttoncheck();
+  funccheck();
+}
+
+// Convert ADC value to key number
+int get_key(unsigned int input)
+{
+  int k;
+
+  for (k = 0; k < NUM_KEYS; k++)
+  {
+    if (input < adc_key_val[k])
+    {
+      return k;
+    }
+  }
+
+  if (k >= NUM_KEYS)k = -1;  // No valid key pressed
+  return k;
+}
+void wait() { //the interupt simply waits a bit, then returns to the menu selection made (E.G. person says dog gets treat every minute, dog barks at 30 second mark so interupt triggers, then one minute timer restarts
+  delay (2000);
+}
